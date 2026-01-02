@@ -1,4 +1,4 @@
- #!/usr/bin/python3
+#!/usr/bin/python3
 """
 MySQLServer.py - Creates alxbookstore database
 """
@@ -10,28 +10,23 @@ def main():
     """Main function"""
     conn = None
     try:
-        # Establish connection
         conn = mysql.connector.connect(
             host="localhost",
             user="root",
             password=""
         )
-        
-        if conn.is_connected():
-            cursor = conn.cursor()
-            
-            # IMPORTANT: Use "alxbookstore" not "alx_book_store"
-            cursor.execute("CREATE DATABASE IF NOT EXISTS alxbookstore")
-            
-            print("Database 'alxbookstore' created successfully!")
-            
-            cursor.close()
-            
+
+        cursor = conn.cursor()
+        cursor.execute("CREATE DATABASE IF NOT EXISTS alxbookstore")
+        print("Database 'alxbookstore' created successfully!")
+
+        cursor.close()
+
     except Error as e:
-        print(f"Error: {e}")
-        
+        print("Error:", e)
+
     finally:
-        if conn and conn.is_connected():
+        if conn is not None and conn.is_connected():
             conn.close()
 
 if __name__ == "__main__":

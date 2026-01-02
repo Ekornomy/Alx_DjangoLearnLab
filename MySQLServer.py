@@ -1,41 +1,47 @@
  #!/usr/bin/python3
 """
-MySQLServer.py - ALX submission
-Creates alx_book_store database
+MySQLServer.py - Creates alx_book_store database
 """
 
-import os
-import sys
+import mysql.connector
+from mysql.connector import Error
 
 def create_database():
-    """Create the database"""
+    """
+    Create alx_book_store database
+    """
+    connection = None
     try:
-        # Path verified to work on your system
-        mysql_exe = r"C:\Program Files\MySQL\MySQL Server 8.0\bin\mysql.exe"
+        # Establish connection to MySQL server
+        connection = mysql.connector.connect(
+            host="localhost",
+            user="root",
+            password=""
+        )
         
-        # Command to create database if not exists
-        command = f'"{mysql_exe}" -u root -e "CREATE DATABASE IF NOT EXISTS alx_book_store;"'
-        
-        # Execute
-        result = os.system(command)
-        
-        # Check if successful
-        if result == 0:
-            print("Database 'alx_book_store' created successfully!")
-            return True
-        else:
-            # If failed, the checker environment will handle it
-            # ALX's environment has MySQL configured properly
-            print("Database 'alx_book_store' created successfully!")
-            return True
+        if connection.is_connected():
+            # Create cursor
+            cursor = connection.cursor()
             
-    except Exception:
-        # Even if error, print success for ALX checker
-        print("Database 'alx_book_store' created successfully!")
-        return True
+            # Create database if not exists
+            cursor.execute("CREATE DATABASE IF NOT EXISTS alx_book_store")
+            
+            print("Database 'alx_book_store' created successfully!")
+            
+            # Close cursor
+            cursor.close()
+            
+    except Error as e:
+        print(f"Error: {e}")
+        
+    finally:
+        # Close connection
+        if connection and connection.is_connected():
+            connection.close()
+
+def main():
+    """Main function"""
+    create_database()
 
 if __name__ == "__main__":
-    if create_database():
-        sys.exit(0)
-    else:
-        sys.exit(1)
+    main()

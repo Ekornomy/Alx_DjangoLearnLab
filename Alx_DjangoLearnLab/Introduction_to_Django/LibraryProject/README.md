@@ -1,2 +1,1 @@
-# LibraryProject
-Django project for library management.
+Library Project Documentation

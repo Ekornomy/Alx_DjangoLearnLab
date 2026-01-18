@@ -11,6 +11,7 @@ def get_books_in_library(library_name):
     return books
 
 def get_librarian_for_library(library_name):
-    from .models import Library
+    from .models import Library, Librarian
     library = Library.objects.get(name=library_name)
-    return library.librarian
+    librarian = Librarian.objects.get(library=library)
+    return librarian

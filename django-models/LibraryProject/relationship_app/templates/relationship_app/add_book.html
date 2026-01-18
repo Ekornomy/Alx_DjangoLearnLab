@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Add Book</title>
+</head>
+<body>
+    <h1>Add New Book</h1>
+    <form method="post">
+        {% csrf_token %}
+        <input type="text" name="title" placeholder="Book Title" required>
+        <input type="number" name="author_id" placeholder="Author ID" required>
+        <button type="submit">Add Book</button>
+    </form>
+</body>
+</html>

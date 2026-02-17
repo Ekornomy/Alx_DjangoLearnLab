@@ -1,9 +1,12 @@
-from rest_framework import viewsets, permissions, filters, generics
+from rest_framework import viewsets, permissions, filters, generics, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
-from .models import Post, Comment
-from .serializers import PostSerializer, PostDetailSerializer, CommentSerializer
+from django.contrib.contenttypes.models import ContentType
+from django.shortcuts import get_object_or_404
+from .models import Post, Comment, Like
+from .serializers import PostSerializer, PostDetailSerializer, CommentSerializer, LikeSerializer
+from notifications.models import Notification
 
 
 class IsAuthorOrReadOnly(permissions.BasePermission):
@@ -34,17 +37,73 @@ class PostViewSet(viewsets.ModelViewSet):
             return PostDetailSerializer
         return PostSerializer
     
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context
+    
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)
     
     @action(detail=True, methods=['get'])
     def comments(self, request, pk=None):
-        """
-        Get all comments for a specific post
-        """
+        """Get all comments for a specific post"""
         post = self.get_object()
         comments = post.comments.all()
-        serializer = CommentSerializer(comments, many=True)
+        serializer = CommentSerializer(comments, many=True, context={'request': request})
+        return Response(serializer.data)
+    
+    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
+    def like(self, request, pk=None):
+        """Like a post"""
+        post = self.get_object()
+        
+        # Check if already liked
+        like, created = Like.objects.get_or_create(user=request.user, post=post)
+        
+        if created:
+            # Create notification for post author
+            if post.author != request.user:  # Don't notify if liking own post
+                Notification.objects.create(
+                    recipient=post.author,
+                    actor=request.user,
+                    verb='like',
+                    content_type=ContentType.objects.get_for_model(post),
+                    object_id=post.id
+                )
+            
+            return Response({
+                "message": "Post liked successfully",
+                "likes_count": post.likes.count()
+            }, status=status.HTTP_201_CREATED)
+        else:
+            return Response({
+                "message": "Post already liked"
+            }, status=status.HTTP_400_BAD_REQUEST)
+    
+    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
+    def unlike(self, request, pk=None):
+        """Unlike a post"""
+        post = self.get_object()
+        
+        try:
+            like = Like.objects.get(user=request.user, post=post)
+            like.delete()
+            return Response({
+                "message": "Post unliked successfully",
+                "likes_count": post.likes.count()
+            }, status=status.HTTP_200_OK)
+        except Like.DoesNotExist:
+            return Response({
+                "message": "You haven't liked this post"
+            }, status=status.HTTP_400_BAD_REQUEST)
+    
+    @action(detail=True, methods=['get'])
+    def likes(self, request, pk=None):
+        """Get all users who liked this post"""
+        post = self.get_object()
+        likes = post.likes.all()
+        serializer = LikeSerializer(likes, many=True, context={'request': request})
         return Response(serializer.data)
 
 
@@ -59,7 +118,17 @@ class CommentViewSet(viewsets.ModelViewSet):
     search_fields = ['content']
     
     def perform_create(self, serializer):
-        serializer.save(author=self.request.user)
+        comment = serializer.save(author=self.request.user)
+        
+        # Create notification for post author
+        if comment.post.author != self.request.user:
+            Notification.objects.create(
+                recipient=comment.post.author,
+                actor=self.request.user,
+                verb='comment',
+                content_type=ContentType.objects.get_for_model(comment.post),
+                object_id=comment.post.id
+            )
     
     def get_queryset(self):
         """
@@ -79,6 +148,11 @@ class FeedView(generics.ListAPIView):
     """
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = PostSerializer
+    
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context
     
     def get_queryset(self):
         user = self.request.user

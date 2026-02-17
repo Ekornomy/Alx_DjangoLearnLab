@@ -4,6 +4,7 @@ from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 from .models import Post, Comment
 from .serializers import PostSerializer, PostDetailSerializer, CommentSerializer
+from .feed import FeedView
 
 
 class IsAuthorOrReadOnly(permissions.BasePermission):

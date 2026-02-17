@@ -4,7 +4,6 @@ from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 from .models import Post, Comment
 from .serializers import PostSerializer, PostDetailSerializer, CommentSerializer
-from .feed import FeedView
 
 
 class IsAuthorOrReadOnly(permissions.BasePermission):
@@ -71,3 +70,19 @@ class CommentViewSet(viewsets.ModelViewSet):
         if post_id is not None:
             queryset = queryset.filter(post_id=post_id)
         return queryset
+
+
+class FeedView(generics.ListAPIView):
+    """
+    View to get feed of posts from users that the current user follows.
+    Returns posts ordered by creation date, showing the most recent posts at the top.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = PostSerializer
+    
+    def get_queryset(self):
+        user = self.request.user
+        # Get users that the current user follows
+        following_users = user.following.all()
+        # Filter posts by authors in following_users and order by creation date (most recent first)
+        return Post.objects.filter(author__in=following_users).order_by('-created_at')

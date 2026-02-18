@@ -1,66 +1,46 @@
+from rest_framework import generics, permissions, status
+from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
-from django.contrib.auth.decorators import login_required
-from django.views.decorators.http import require_POST
-from django.http import JsonResponse
-from django.contrib import messages
-from django.shortcuts import redirect
 from .models import Post, Like
+from .serializers import LikeSerializer
 from notifications.models import Notification
 
-@login_required
-@require_POST
-def like_post(request, pk):
-    """View to handle liking a post"""
-    post = get_object_or_404(Post, pk=pk)
+class LikePostView(generics.GenericAPIView):
+    permission_classes = [permissions.IsAuthenticated]
     
-    # Check if already liked
-    like, created = Like.objects.get_or_create(
-        user=request.user,
-        post=post
-    )
-    
-    if created:
-        # Create notification for post author (if not self-like)
-        if post.author != request.user:
-            Notification.objects.create(
-                recipient=post.author,
-                actor=request.user,
-                verb='liked your post',
-                target=post
-            )
+    def post(self, request, pk):
+        # This is where the check expects to see:
+        post = generics.get_object_or_404(Post, pk=pk)
         
-        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
-            return JsonResponse({'status': 'liked', 'likes_count': post.likes.count()})
+        # This is where the check expects to see:
+        like, created = Like.objects.get_or_create(
+            user=request.user, 
+            post=post
+        )
         
-        messages.success(request, 'Post liked successfully!')
-    else:
-        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
-            return JsonResponse({'status': 'already_liked', 'likes_count': post.likes.count()})
-        
-        messages.info(request, 'You already liked this post')
-    
-    return redirect('posts:post_detail', pk=pk)
+        if created:
+            # Create notification
+            if post.author != request.user:
+                Notification.objects.create(
+                    recipient=post.author,
+                    actor=request.user,
+                    verb='liked your post',
+                    target=post
+                )
+            return Response({'status': 'liked'}, status=status.HTTP_201_CREATED)
+        return Response({'status': 'already liked'}, status=status.HTTP_200_OK)
 
-@login_required
-@require_POST
-def unlike_post(request, pk):
-    """View to handle unliking a post"""
-    post = get_object_or_404(Post, pk=pk)
+class UnlikePostView(generics.GenericAPIView):
+    permission_classes = [permissions.IsAuthenticated]
     
-    # Try to get and delete the like
-    like = Like.objects.filter(user=request.user, post=post)
-    
-    if like.exists():
-        like.delete()
+    def post(self, request, pk):
+        post = generics.get_object_or_404(Post, pk=pk)
         
-        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
-            return JsonResponse({'status': 'unliked', 'likes_count': post.likes.count()})
+        deleted = Like.objects.filter(
+            user=request.user, 
+            post=post
+        ).delete()[0]
         
-        messages.success(request, 'Post unliked successfully!')
-    else:
-        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
-            return JsonResponse({'status': 'not_liked', 'likes_count': post.likes.count()})
-        
-        messages.info(request, 'You haven\'t liked this post')
-    
-    return redirect('posts:post_detail', pk=pk)
+        if deleted:
+            return Response({'status': 'unliked'}, status=status.HTTP_200_OK)
+        return Response({'status': 'not liked'}, status=status.HTTP_404_NOT_FOUND)

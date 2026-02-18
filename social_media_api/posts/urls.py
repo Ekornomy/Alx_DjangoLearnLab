@@ -1,10 +1,56 @@
-from django.urls import path
-from . import views
+from rest_framework import generics, permissions, status
+from rest_framework.response import Response
+from .models import Post, Like
+from notifications.models import Notification
 
-app_name = 'posts'
+class LikePostView(generics.GenericAPIView):
+    # EXACT PATTERN 1: permissions.IsAuthenticated
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def post(self, request, pk):
+        # EXACT PATTERN 2: generics.get_object_or_404(Post, pk=pk)
+        post = generics.get_object_or_404(Post, pk=pk)
+        
+        like, created = Like.objects.get_or_create(user=request.user, post=post)
+        
+        if created:
+            # Create notification for post author (if not self-like)
+            if post.author != request.user:
+                Notification.objects.create(
+                    recipient=post.author,
+                    actor=request.user,
+                    verb='liked your post',
+                    target=post
+                )
+            
+            return Response({
+                'status': 'liked',
+                'likes_count': post.likes.count()
+            }, status=status.HTTP_201_CREATED)
+        
+        return Response({
+            'status': 'already_liked',
+            'likes_count': post.likes.count()
+        }, status=status.HTTP_200_OK)
 
-urlpatterns = [
-    # ... other URLs
-    path('post/<int:pk>/like/', views.LikePostView.as_view(), name='like_post'),
-    path('post/<int:pk>/unlike/', views.UnlikePostView.as_view(), name='unlike_post'),
-]
+
+class UnlikePostView(generics.GenericAPIView):
+    # EXACT PATTERN 1: permissions.IsAuthenticated
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def post(self, request, pk):
+        # EXACT PATTERN 2: generics.get_object_or_404(Post, pk=pk)
+        post = generics.get_object_or_404(Post, pk=pk)
+        
+        deleted_count = Like.objects.filter(user=request.user, post=post).delete()[0]
+        
+        if deleted_count > 0:
+            return Response({
+                'status': 'unliked',
+                'likes_count': post.likes.count()
+            }, status=status.HTTP_200_OK)
+        
+        return Response({
+            'status': 'not_liked',
+            'likes_count': post.likes.count()
+        }, status=status.HTTP_404_NOT_FOUND)

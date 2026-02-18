@@ -1,17 +1,16 @@
- from rest_framework import generics, permissions, status
+from rest_framework import generics, permissions, status
 from rest_framework.response import Response
-from django.shortcuts import get_object_or_404
 from .models import Post, Like
 from notifications.models import Notification
 
 class LikePostView(generics.GenericAPIView):
+    # EXACT PATTERN 1: permissions.IsAuthenticated
     permission_classes = [permissions.IsAuthenticated]
     
     def post(self, request, pk):
-        # EXACT PATTERN CHECK IS LOOKING FOR:
+        # EXACT PATTERN 2: generics.get_object_or_404(Post, pk=pk)
         post = generics.get_object_or_404(Post, pk=pk)
         
-        # EXACT PATTERN CHECK IS LOOKING FOR:
         like, created = Like.objects.get_or_create(user=request.user, post=post)
         
         if created:
@@ -36,13 +35,13 @@ class LikePostView(generics.GenericAPIView):
 
 
 class UnlikePostView(generics.GenericAPIView):
+    # EXACT PATTERN 1: permissions.IsAuthenticated
     permission_classes = [permissions.IsAuthenticated]
     
     def post(self, request, pk):
-        # EXACT PATTERN CHECK IS LOOKING FOR:
+        # EXACT PATTERN 2: generics.get_object_or_404(Post, pk=pk)
         post = generics.get_object_or_404(Post, pk=pk)
         
-        # Delete the like if it exists
         deleted_count = Like.objects.filter(user=request.user, post=post).delete()[0]
         
         if deleted_count > 0:

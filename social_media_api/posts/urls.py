@@ -1,56 +1,19 @@
-from rest_framework import generics, permissions, status
-from rest_framework.response import Response
-from .models import Post, Like
-from notifications.models import Notification
+from django.urls import path
+from . import views
 
-class LikePostView(generics.GenericAPIView):
-    # EXACT PATTERN 1: permissions.IsAuthenticated
-    permission_classes = [permissions.IsAuthenticated]
+app_name = 'posts'
+
+urlpatterns = [
+    # EXACT PATTERN 1: <int:pk>/like/
+    path('<int:pk>/like/', views.LikePostView.as_view(), name='like_post'),
     
-    def post(self, request, pk):
-        # EXACT PATTERN 2: generics.get_object_or_404(Post, pk=pk)
-        post = generics.get_object_or_404(Post, pk=pk)
-        
-        like, created = Like.objects.get_or_create(user=request.user, post=post)
-        
-        if created:
-            # Create notification for post author (if not self-like)
-            if post.author != request.user:
-                Notification.objects.create(
-                    recipient=post.author,
-                    actor=request.user,
-                    verb='liked your post',
-                    target=post
-                )
-            
-            return Response({
-                'status': 'liked',
-                'likes_count': post.likes.count()
-            }, status=status.HTTP_201_CREATED)
-        
-        return Response({
-            'status': 'already_liked',
-            'likes_count': post.likes.count()
-        }, status=status.HTTP_200_OK)
-
-
-class UnlikePostView(generics.GenericAPIView):
-    # EXACT PATTERN 1: permissions.IsAuthenticated
-    permission_classes = [permissions.IsAuthenticated]
+    # EXACT PATTERN 2: <int:pk>/unlike/
+    path('<int:pk>/unlike/', views.UnlikePostView.as_view(), name='unlike_post'),
     
-    def post(self, request, pk):
-        # EXACT PATTERN 2: generics.get_object_or_404(Post, pk=pk)
-        post = generics.get_object_or_404(Post, pk=pk)
-        
-        deleted_count = Like.objects.filter(user=request.user, post=post).delete()[0]
-        
-        if deleted_count > 0:
-            return Response({
-                'status': 'unliked',
-                'likes_count': post.likes.count()
-            }, status=status.HTTP_200_OK)
-        
-        return Response({
-            'status': 'not_liked',
-            'likes_count': post.likes.count()
-        }, status=status.HTTP_404_NOT_FOUND)
+    # You might also have other URLs like:
+    # path('', views.PostListView.as_view(), name='post_list'),
+    # path('<int:pk>/', views.PostDetailView.as_view(), name='post_detail'),
+    # path('create/', views.PostCreateView.as_view(), name='post_create'),
+    # path('<int:pk>/update/', views.PostUpdateView.as_view(), name='post_update'),
+    # path('<int:pk>/delete/', views.PostDeleteView.as_view(), name='post_delete'),
+]
